@@ -58,7 +58,7 @@ public class ConfigScreen extends Screen {
         toggle(2, 5, "HUD", () -> HudConfig.get().enabled, v -> HudConfig.get().enabled = v);
 
         toggle(0, 6, "Hide vanilla", () -> HudConfig.get().hideVanilla, v -> HudConfig.get().hideVanilla = v);
-        toggle(1, 6, "Exp ring", () -> HudConfig.get().showExp, v -> HudConfig.get().showExp = v);
+        toggle(1, 6, "Exp bar", () -> HudConfig.get().showExp, v -> HudConfig.get().showExp = v);
         addRenderableWidget(Button.builder(Component.literal("Reset"), b -> {
             HudConfig.reset();
             this.rebuildWidgets();
@@ -113,7 +113,7 @@ public class ConfigScreen extends Screen {
         HudConfig c = HudConfig.get();
         HudRenderer.preview(g);
         g.outline(c.x - 1, c.y - 1, hudW() + 2, hudH() + 2, dragging ? 0xFFFFFFFF : 0x99FFD36B);
-        g.text(this.font, "Custom RPG HUD - tarik panel HUD dengan mouse, atau pakai slider",
+        g.text(this.font, "Custom RPG HUD - tarik HUD dengan mouse, atau pakai slider",
                 boxLeft + 2, boxTop + 2, 0xFFFFD36B, true);
 
         // Drag & drop: polling status tombol kiri mouse

@@ -15,7 +15,12 @@ public class RpgHudClient implements ClientModInitializer {
     public static final String MOD_ID = "custom_rpg_hud";
 
     private static KeyMapping openKey;
+    private static KeyMapping editKey;
     private static volatile boolean openRequested;
+    private static volatile boolean editRequested;
+
+    /** Dipanggil dari command /rpghud edit. */
+    public static void requestEdit() { editRequested = true; }
 
     /** Dipanggil dari command /rpghud gui (dibuka di tick berikutnya agar tidak bentrok dengan layar chat). */
     public static void requestOpen() { openRequested = true; }
@@ -42,11 +47,22 @@ public class RpgHudClient implements ClientModInitializer {
                 GLFW.GLFW_KEY_H,
                 category));
 
+        // Tombol HUD Edit Mode (drag & drop), default: J
+        editKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+                "key.custom_rpg_hud.edit_mode",
+                InputConstants.Type.KEYSYM,
+                GLFW.GLFW_KEY_J,
+                category));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            boolean open = false;
+            boolean open = false, edit = false;
             while (openKey.consumeClick()) open = true;
+            while (editKey.consumeClick()) edit = true;
             if (openRequested) { openRequested = false; open = true; }
-            if (open && client.player != null) McCompat.openScreen(new ConfigScreen());
+            if (editRequested) { editRequested = false; edit = true; }
+            if (client.player == null) return;
+            if (edit) McCompat.openScreen(new HudEditScreen());
+            else if (open) McCompat.openScreen(new ConfigScreen());
         });
 
         HudCommands.register();
