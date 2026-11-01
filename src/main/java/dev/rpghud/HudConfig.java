@@ -23,8 +23,6 @@ public class HudConfig {
     // Elemen yang bisa dinyalakan / dimatikan
     public boolean showFace = true;
     public boolean showLevel = true;
-    /** Ring EXP (busur biru) di sisi kanan lingkaran profil. */
-    public boolean showExp = true;
     public boolean showName = true;
     public boolean showHealth = true;
     public boolean showHunger = true;

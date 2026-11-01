@@ -27,17 +27,19 @@ import java.util.Arrays;
  */
 public final class HudRenderer {
     // ---- dimensi layout (piksel GUI sebelum scale)
-    public static final int CIRCLE_D = 86;
+    public static final int CIRCLE_D = 92;
     private static final int CIRCLE_R = CIRCLE_D / 2;
     public static final int NAME_H = 15;
     public static final int INFO_H = 19;
     public static final int FPS_W = 66;
+    public static final int LEVEL_H = 15;
+    private static final int SIDE_Y = CIRCLE_D / 2 - 21;   // panel samping rata tengah lingkaran
     private static final int SIDE_GAP = 3;
     private static final int PANEL_GAP = 4;
 
-    // cincin bar: radius dalam / luar (tebal 6px)
-    private static final int BAND_RI = 32;
-    private static final int BAND_RO = 38;
+    // cincin bar: radius dalam / luar (tebal 7px: garis luar 1px + isi 5px + garis dalam 1px)
+    private static final int BAND_RI = 33;
+    private static final int BAND_RO = 40;
     private static final double CELL_DEG = 9.0;     // 40 kotak x 9 derajat = 360 derajat
 
     // ---- palet logam: emas tua / cokelat, highlight terang di sisi atas
@@ -88,8 +90,6 @@ public final class HudRenderer {
         return c.showFace || c.showHealth || c.showHunger || c.showArmor;
     }
 
-    private static int badgeH(HudConfig c) { return c.showExp ? 19 : 15; }
-
     private static String coordsText(LocalPlayer p) {
         return (int) Math.floor(p.getX()) + " " + (int) Math.floor(p.getY()) + " " + (int) Math.floor(p.getZ());
     }
@@ -114,8 +114,8 @@ public final class HudRenderer {
         boolean circle = circleVisible(c);
         int ctop = c.showName ? NAME_H + 2 : 0;
         int h = c.showName ? NAME_H : 0;
-        if (circle) h = ctop + CIRCLE_D + (c.showLevel ? badgeH(c) - 8 : 0);
-        int sy = circle ? ctop + 20 : ctop;
+        if (circle) h = ctop + CIRCLE_D + (c.showLevel ? LEVEL_H - 8 : 0);
+        int sy = circle ? ctop + SIDE_Y : ctop;
         int bottom = 0;
         if (c.showCoords) { bottom = sy + INFO_H; sy += INFO_H + PANEL_GAP; }
         if (c.showFps) bottom = sy + INFO_H;
@@ -176,7 +176,7 @@ public final class HudRenderer {
         if (circle) drawCircle(g, mc, p, c, ctop);
 
         int sx = circle ? CIRCLE_D + SIDE_GAP : 0;
-        int sy = circle ? ctop + 20 : ctop;
+        int sy = circle ? ctop + SIDE_Y : ctop;
         if (c.showCoords) {
             drawCoords(g, mc, p, sx, sy, coordsWidth());
             sy += INFO_H + PANEL_GAP;
@@ -197,6 +197,8 @@ public final class HudRenderer {
         disc(g, cx, cy, CIRCLE_R - 1, METAL_HL_TOP);
         disc(g, cx + 1, cy + 1, CIRCLE_R - 2, METAL_SH_BOTTOM);
         disc(g, cx, cy, CIRCLE_R - 2, METAL_MID);
+        disc(g, cx, cy, CIRCLE_R - 3, BRONZE_LINE);                  // garis ukir di rim
+        disc(g, cx, cy, CIRCLE_R - 4, METAL_MID);
         disc(g, cx, cy, BAND_RO + 1, 0xFF080605);                    // alas gelap tempat cincin kotak
 
         // cincin dalam (cekung) + alas kepala
@@ -229,26 +231,15 @@ public final class HudRenderer {
             g.blit(RenderPipelines.GUI_TEXTURED, skin, cx - 20, cy - 20, 40f, 8f, 40, 40, 8, 8, 64, 64);
         }
 
-        // ---- indikator level EXP (teks hijau + bar progress) menempel di bawah lingkaran
+        // ---- kotak level: hanya teks "Lv N", bingkai logam di tengah bawah lingkaran
         if (c.showLevel) {
             String lv = "Lv " + p.experienceLevel;
             int tw = mc.font.width(lv);
             int bw = Math.max(54, tw + 16);
-            int bh = badgeH(c);
             int bx = (CIRCLE_D - bw) / 2;
             int by = top + CIRCLE_D - 8;
-            badge(g, bx, by, bw, bh);
+            badge(g, bx, by, bw, LEVEL_H);
             g.text(mc.font, lv, bx + (bw - tw) / 2, by + 3, LEVEL_GREEN, true);
-            if (c.showExp) {
-                int x0 = bx + 5, x1 = bx + bw - 5;
-                g.fill(x0 - 1, by + 12, x1 + 1, by + 16, 0xFF050403);
-                int fw = Math.round((x1 - x0) * clamp01(p.experienceProgress));
-                if (fw > 0) {
-                    g.fill(x0, by + 13, x0 + fw, by + 14, 0xFFB6FF8F);
-                    g.fill(x0, by + 14, x0 + fw, by + 15, 0xFF3FA82A);
-                }
-                if (fw < x1 - x0) g.fill(x0 + fw, by + 13, x1, by + 15, 0xFF1F2A19);
-            }
         }
     }
 
@@ -284,12 +275,14 @@ public final class HudRenderer {
 
                 int k = Math.min(cellsN - 1, (int) Math.floor(l / CELL_DEG));
                 double p = l - k * CELL_DEG;
-                double gapDeg = Math.toDegrees(1.3 / r);                  // celah ~1.3px
-                if (p < gapDeg / 2 || p > CELL_DEG - gapDeg / 2) continue;
+                double edgeDeg = Math.toDegrees(1.0 / r);                 // garis pembatas ~1px
+                boolean edge = r < RI + 1.0 || r >= RO - 1.0              // garis dalam & luar
+                        || p < edgeDeg                                    // garis di awal kotak
+                        || (k == cellsN - 1 && p > CELL_DEG - edgeDeg);   // garis penutup sektor
 
                 xs[n] = dx; ys[n] = dy; secs[n] = sec; cls[n] = k;
-                pfs[n] = (float) ((p - gapDeg / 2) / (CELL_DEG - gapDeg));
-                shs[n] = r < RI + 1.5 ? 0 : (r >= RO - 1.5 ? 2 : 1);
+                pfs[n] = (float) Math.max(0.0, Math.min(1.0, (p - edgeDeg) / (CELL_DEG - edgeDeg)));
+                shs[n] = edge ? 3 : (r < RI + 2.0 ? 0 : (r >= RO - 2.0 ? 2 : 1));
                 n++;
             }
         }
@@ -299,8 +292,8 @@ public final class HudRenderer {
         bandCount = n;
     }
 
-    private static final float[] SHADE_K = {0.72f, 1.0f, 1.22f};
-    private static final int[] EMPTY = {0xFF1C1410, 0xFF2C211A, 0xFF3A2D24};
+    private static final float[] SHADE_K = {0.78f, 1.0f, 1.25f, 0.32f};   // indeks 3 = garis tepi
+    private static final int[] EMPTY = {0xFF1E1511, 0xFF2C211A, 0xFF3A2D24, 0xFF0B0705};
 
     private static void curvedBars(GuiGraphicsExtractor g, int cx, int cy, int hpBase,
                                    boolean showHp, boolean showFood, boolean showArmor) {

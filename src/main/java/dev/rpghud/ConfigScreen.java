@@ -58,7 +58,10 @@ public class ConfigScreen extends Screen {
         toggle(2, 5, "HUD", () -> HudConfig.get().enabled, v -> HudConfig.get().enabled = v);
 
         toggle(0, 6, "Hide vanilla", () -> HudConfig.get().hideVanilla, v -> HudConfig.get().hideVanilla = v);
-        toggle(1, 6, "Exp bar", () -> HudConfig.get().showExp, v -> HudConfig.get().showExp = v);
+        addRenderableWidget(Button.builder(Component.literal("Edit mode"), b -> {
+            HudConfig.save();
+            McCompat.openScreen(new HudEditScreen());
+        }).bounds(colX(1), rowY(6), COL_W, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Reset"), b -> {
             HudConfig.reset();
             this.rebuildWidgets();
