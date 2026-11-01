@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "custom_rpg_hud",
+  "version": "${version}",
+  "name": "Custom RPG HUD",
+  "description": "HUD bergaya RPG di kiri atas: wajah skin, health, armor, hunger. Posisi & ukuran bisa diatur.",
+  "authors": ["You"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.rpghud.RpgHudClient"]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
