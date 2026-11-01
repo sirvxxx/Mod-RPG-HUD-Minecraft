@@ -2,35 +2,33 @@ package dev.rpghud;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.client.renderer.RenderPipelines;
 
 /**
  * Type Bar: panel persegi panjang berbingkai logam.
- *   kiri  : kotak foto skin + badge "Lv N" di bawahnya
- *   kanan : baris nama + angka HP (20/20), bar HP (penuh), lalu bar Hunger dan Armor berdampingan
- *   bawah : satu bar Coords (XYZ) + FPS
- * Semua bar 10 kotak horizontal. Bar digambar dari daftar persegi yang di-cache
- * (dibangun ulang hanya saat nilainya berubah) dengan trik isi kontinu + garis pemisah,
- * sehingga hanya ~60 persegi untuk ketiga bar.
+ *   Name   : kapsul berisi nama (kiri) + angka HP 20/20 (kanan)
+ *   Avatar : kotak foto skin (kiri) + panel bar HP (penuh), Hunger dan Armor berdampingan (kanan)
+ *   Level  : badge "Lv N" (default di bawah foto)
+ * Bar 10 kotak horizontal digambar dari daftar persegi ter-cache (dibangun ulang hanya saat nilainya berubah),
+ * dengan trik isi kontinu + garis pemisah: ~60 persegi untuk ketiga bar.
  */
 final class BarLayout {
     private BarLayout() {}
 
     static final int FACE = 40;
-    static final int LEVEL_H = 17;
-    private static final int LEVEL_GAP = 3;
+    static final int FACE_Y = 2;                    // foto skin rata tengah terhadap panel setinggi 44
     static final int PANEL_X = 44;
     static final int PANEL_W = 170;
-    static final int PANEL_H = 52;
-    private static final int PANEL_Y = 4;
-    static final int INFO_H = 19;
-    private static final int GAP = 3;
+    static final int PANEL_H = 44;
+    static final int AVATAR_W = PANEL_X + PANEL_W;  // 214 (dengan foto)
+    static final int AVATAR_H = PANEL_H;
+    static final int NAME_W = PANEL_W;
+    static final int CAPSULE_H = 17;
     private static final int ICON = HudDraw.ICON;
 
     // posisi bar relatif ke pojok kiri-atas panel
-    private static final int HP_Y = 22, HP_H = 10;
-    private static final int ROW2_Y = 35, ROW2_H = 9;
+    private static final int HP_Y = 9, HP_H = 12;
+    private static final int ROW2_Y = 25, ROW2_H = 10;
     private static final int HP_X = 18, HP_W = PANEL_W - 7 - HP_X;          // 145
     private static final int HALF = (PANEL_W - 14 - 6) / 2;                  // 75
     private static final int HUN_X = 18, HUN_W = HALF - 11;                   // 64
@@ -43,112 +41,51 @@ final class BarLayout {
     private static long barsKey = Long.MIN_VALUE;
     private static final int[] SEP = new int[11];
 
-    // ------------------------------------------------------------------ ukuran
+    static int avatarWidth(HudConfig c) { return c.showFace ? AVATAR_W : PANEL_W; }
 
-    private static boolean panelVisible(HudConfig c) {
-        return c.showName || c.showHealth || c.showHunger || c.showArmor;
-    }
+    static int levelWidth() { return Math.max(34, Math.min(FACE, HudState.levelW + 14)); }
 
-    private static boolean infoVisible(HudConfig c) { return c.showCoords || c.showFps; }
+    // ------------------------------------------------------------------ komponen (titik asal = pojok kiri-atas komponen)
 
-    private static int topHeight(HudConfig c) {
-        int left = c.showFace ? (c.showLevel ? FACE + LEVEL_GAP + LEVEL_H : FACE) : 0;
-        int panel = panelVisible(c) ? (c.showFace ? PANEL_Y : 0) + PANEL_H : 0;
-        return Math.max(left, panel);
-    }
-
-    private static int mainWidth(HudConfig c) {
-        boolean panel = panelVisible(c);
-        if (panel) return (c.showFace ? PANEL_X : 0) + PANEL_W;
-        return c.showFace ? FACE : 0;
-    }
-
-    private static int infoWidth(HudConfig c) {
-        int need = 14;                                                        // padding kiri + kanan 7px
-        if (c.showCoords) need += ICON + 3 + HudState.coordsLabelW + HudState.coordsValsW;
-        if (c.showFps) need += ICON + 3 + HudState.fpsTextW;
-        if (c.showCoords && c.showFps) need += 10;
-        return Math.max(mainWidth(c), need);
-    }
-
-    static int width(HudConfig c) {
-        int w = mainWidth(c);
-        if (infoVisible(c)) w = Math.max(w, infoWidth(c));
-        return w;
-    }
-
-    static int height(HudConfig c) {
-        int h = topHeight(c);
-        if (infoVisible(c)) h += (h > 0 ? GAP : 0) + INFO_H;
-        return h;
-    }
-
-    // ------------------------------------------------------------------ gambar
-
-    static void draw(GuiGraphicsExtractor g, Minecraft mc, LocalPlayer p, HudConfig c) {
+    /** Component 1: kapsul nama + angka HP. */
+    static void drawName(GuiGraphicsExtractor g, Minecraft mc, HudConfig c) {
         final HudTheme t = HudState.T;
-        final boolean face = c.showFace;
-        final int top = topHeight(c);
+        HudDraw.badge(g, t, 0, 0, NAME_W, CAPSULE_H);
+        g.text(mc.font, HudState.nameBar, 7, 5, t.text, true);
+        if (c.showHealth) g.text(mc.font, HudState.hpStr, NAME_W - 7 - HudState.hpStrW, 5, 0xFFFFFFFF, true);
+    }
 
-        if (face) {
-            // kotak foto skin: area dalam bingkai 32x32 = 8x8 diperbesar 4x
-            HudDraw.frame(g, t, 0, 0, FACE, FACE);
-            g.blit(RenderPipelines.GUI_TEXTURED, HudState.skin, 4, 4, 8f, 8f, 32, 32, 8, 8, 64, 64);
-            g.blit(RenderPipelines.GUI_TEXTURED, HudState.skin, 4, 4, 40f, 8f, 32, 32, 8, 8, 64, 64);
+    /** Component 2: foto skin berbingkai + panel bar HP / Hunger / Armor. */
+    static void drawAvatar(GuiGraphicsExtractor g, Minecraft mc, HudConfig c) {
+        final HudTheme t = HudState.T;
+        final int px = c.showFace ? PANEL_X : 0;
 
-            if (c.showLevel) {
-                int bw = Math.max(34, Math.min(FACE, HudState.levelW + 14));
-                int bx = (FACE - bw) / 2;
-                int by = FACE + LEVEL_GAP;
-                HudDraw.badge(g, t, bx, by, bw, LEVEL_H);
-                g.text(mc.font, HudState.levelStr, bx + (bw - HudState.levelW) / 2, by + 5, t.level, true);
-            }
+        if (c.showFace) {
+            // area dalam bingkai 32x32 = kepala 8x8 diperbesar 4x
+            HudDraw.frame(g, t, 0, FACE_Y, FACE, FACE);
+            g.blit(RenderPipelines.GUI_TEXTURED, HudState.skin, 4, FACE_Y + 4, 8f, 8f, 32, 32, 8, 8, 64, 64);
+            g.blit(RenderPipelines.GUI_TEXTURED, HudState.skin, 4, FACE_Y + 4, 40f, 8f, 32, 32, 8, 8, 64, 64);
         }
 
-        if (panelVisible(c)) drawPanel(g, mc, c, t, face ? PANEL_X : 0, face ? PANEL_Y : 0);
-        if (infoVisible(c)) drawInfo(g, mc, c, t, top > 0 ? top + GAP : 0, infoWidth(c));
-    }
-
-    private static void drawPanel(GuiGraphicsExtractor g, Minecraft mc, HudConfig c, HudTheme t, int px, int py) {
-        HudDraw.frame(g, t, px, py, PANEL_W, PANEL_H);
-
-        // baris judul: nama (kiri) + angka HP (kanan), teks 7px di tengah baris 12px
-        if (c.showName) g.text(mc.font, HudState.nameBar, px + 7, py + 9, t.text, true);
-        if (c.showHealth) g.text(mc.font, HudState.hpStr, px + PANEL_W - 7 - HudState.hpStrW, py + 9, 0xFFFFFFFF, true);
-
-        if (c.showHealth) HudDraw.icon(g, t.iconHeart, px + 7, py + HP_Y + 1);
-        if (c.showHunger) HudDraw.icon(g, t.iconFood, px + 7, py + ROW2_Y);
-        if (c.showArmor) HudDraw.icon(g, t.iconArmor, px + ARM_ICON_X, py + ROW2_Y);
+        HudDraw.frame(g, t, px, 0, PANEL_W, PANEL_H);
+        if (c.showHealth) HudDraw.icon(g, t.iconHeart, px + 7, HP_Y + (HP_H - ICON) / 2);
+        if (c.showHunger) HudDraw.icon(g, t.iconFood, px + 7, ROW2_Y + (ROW2_H - ICON) / 2);
+        if (c.showArmor) HudDraw.icon(g, t.iconArmor, px + ARM_ICON_X, ROW2_Y + (ROW2_H - ICON) / 2);
 
         long key = HudState.statKey(c.showHealth, c.showHunger, c.showArmor);
         if (key != barsKey) {
             barsKey = key;
             rebuildBars(t, c.showHealth, c.showHunger, c.showArmor);
         }
-        BARS.draw(g, px, py);
+        BARS.draw(g, px, 0);
     }
 
-    private static void drawInfo(GuiGraphicsExtractor g, Minecraft mc, HudConfig c, HudTheme t, int y, int w) {
-        HudDraw.frame(g, t, 0, y, w, INFO_H);
-        int ty = y + 6;
-        if (c.showCoords) {
-            HudDraw.icon(g, t.iconCoords, 7, y + 5);
-            int tx = 7 + ICON + 3;
-            g.text(mc.font, HudState.coordsLabel, tx, ty, t.text, true);
-            g.text(mc.font, HudState.coordsVals, tx + HudState.coordsLabelW, ty, 0xFFFFFFFF, true);
-        }
-        if (c.showFps) {
-            int groupW = ICON + 3 + HudState.fpsNumW + HudState.fpsLabelW;
-            int fx = w - 7 - groupW;
-            if (c.showCoords) {
-                g.fill(fx - 6, y + 5, fx - 5, y + INFO_H - 5, t.empty[3]);
-                g.fill(fx - 5, y + 5, fx - 4, y + INFO_H - 5, 0x60FFFFFF & (t.text | 0xFF000000));
-            }
-            HudDraw.icon(g, t.iconFps, fx, y + 5);
-            int tx = fx + ICON + 3;
-            g.text(mc.font, HudState.fpsNum, tx, ty, HudRenderer.fpsColor(), true);
-            g.text(mc.font, HudState.fpsLabel, tx + HudState.fpsNumW, ty, t.text, true);
-        }
+    /** Component 3: badge level. */
+    static void drawLevel(GuiGraphicsExtractor g, Minecraft mc) {
+        final HudTheme t = HudState.T;
+        int bw = levelWidth();
+        HudDraw.badge(g, t, 0, 0, bw, CAPSULE_H);
+        g.text(mc.font, HudState.levelStr, (bw - HudState.levelW) / 2, 5, t.level, true);
     }
 
     // ------------------------------------------------------------------ bar 10 kotak (dibangun saat berubah)

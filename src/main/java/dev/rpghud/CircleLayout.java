@@ -19,14 +19,8 @@ final class CircleLayout {
     static final int D = 92;
     private static final int R = D / 2;
     private static final int RING_TEX = 96;          // ring.png (92 + ruang bayangan)
-    static final int NAME_H = 17;                    // tinggi 17 -> area dalam 11px, teks (7px) punya 2px lega atas-bawah
-    private static final int NAME_GAP = 4;
-    static final int LEVEL_H = 17;
-    private static final int LEVEL_GAP = 4;
-    static final int INFO_H = 19;
-    private static final int SIDE_Y = D / 2 - 21;    // panel samping rata tengah lingkaran
-    private static final int SIDE_GAP = 3;
-    private static final int PANEL_GAP = 4;
+    static final int CAPSULE_H = 17;                 // tinggi 17 -> area dalam 11px, teks (7px) punya 2px lega atas-bawah
+    static final int INFO_H = InfoPanels.H;
 
     private static final int BAND_RI = 33;
     private static final int BAND_RO = 40;
@@ -47,73 +41,23 @@ final class CircleLayout {
     private static final RectBatch RING = new RectBatch(1100);
     private static long ringKey = Long.MIN_VALUE;
 
-    // ------------------------------------------------------------------ ukuran
+    static int levelWidth() { return Math.max(56, HudState.levelW + 22); }
 
-    static boolean circleVisible(HudConfig c) {
-        return c.showFace || c.showHealth || c.showHunger || c.showArmor;
-    }
+    // ------------------------------------------------------------------ komponen (titik asal = pojok kiri-atas komponen)
 
-    private static int circleTop(HudConfig c) { return c.showName ? NAME_H + NAME_GAP : 0; }
-
-    static int width(HudConfig c) {
-        boolean circle = circleVisible(c);
-        int w = (circle || c.showName) ? D : 0;
-        int side = 0;
-        if (c.showCoords) side = Math.max(side, HudState.coordsPanelW);
-        if (c.showFps) side = Math.max(side, HudState.fpsPanelW);
-        if (side > 0) w = Math.max(w, (circle ? D + SIDE_GAP : 0) + side);
-        return w;
-    }
-
-    static int height(HudConfig c) {
-        boolean circle = circleVisible(c);
-        int ctop = circleTop(c);
-        int h = c.showName ? NAME_H : 0;
-        if (circle) h = ctop + D + (c.showLevel ? LEVEL_GAP + LEVEL_H : 0);
-        int sy = circle ? ctop + SIDE_Y : ctop;
-        int bottom = 0;
-        if (c.showCoords) { bottom = sy + INFO_H; sy += INFO_H + PANEL_GAP; }
-        if (c.showFps) bottom = sy + INFO_H;
-        return Math.max(h, bottom);
-    }
-
-    // ------------------------------------------------------------------ gambar
-
-    static void draw(GuiGraphicsExtractor g, Minecraft mc, LocalPlayer p, HudConfig c) {
+    /** Component 1: kapsul nama. */
+    static void drawName(GuiGraphicsExtractor g, Minecraft mc) {
         final HudTheme t = HudState.T;
-        boolean circle = circleVisible(c);
-        int ctop = circleTop(c);
-
-        if (c.showName) {
-            HudDraw.badge(g, t, 0, 0, D, NAME_H);
-            g.text(mc.font, HudState.nameCircle, (D - HudState.nameCircleW) / 2, 5, t.text, true);
-        }
-        if (circle) drawCircle(g, mc, c, t, ctop);
-
-        int sx = circle ? D + SIDE_GAP : 0;
-        int sy = circle ? ctop + SIDE_Y : ctop;
-        if (c.showCoords) {
-            HudDraw.frame(g, t, sx, sy, HudState.coordsPanelW, INFO_H);
-            HudDraw.icon(g, t.iconCoords, sx + 7, sy + 5);
-            int tx = sx + 7 + HudDraw.ICON + 3;
-            g.text(mc.font, HudState.coordsLabel, tx, sy + 6, t.text, true);
-            g.text(mc.font, HudState.coordsVals, tx + HudState.coordsLabelW, sy + 6, 0xFFFFFFFF, true);
-            sy += INFO_H + PANEL_GAP;
-        }
-        if (c.showFps) {
-            HudDraw.frame(g, t, sx, sy, HudState.fpsPanelW, INFO_H);
-            HudDraw.icon(g, t.iconFps, sx + 7, sy + 5);
-            int tx = sx + 7 + HudDraw.ICON + 3;
-            g.text(mc.font, HudState.fpsNum, tx, sy + 6, HudRenderer.fpsColor(), true);
-            g.text(mc.font, HudState.fpsLabel, tx + HudState.fpsNumW, sy + 6, t.text, true);
-        }
+        HudDraw.badge(g, t, 0, 0, D, CAPSULE_H);
+        g.text(mc.font, HudState.nameCircle, (D - HudState.nameCircleW) / 2, 5, t.text, true);
     }
 
-    private static void drawCircle(GuiGraphicsExtractor g, Minecraft mc, HudConfig c, HudTheme t, int top) {
-        final int cx = R, cy = top + R;
+    /** Component 2: kepala skin + cincin bar kotak (HP kiri, Hunger kanan-atas, Armor kanan-bawah). */
+    static void drawAvatar(GuiGraphicsExtractor g, Minecraft mc, HudConfig c) {
+        final HudTheme t = HudState.T;
 
-        // rim + alas cincin + cincin dalam + bayangan: satu tekstur
-        g.blit(RenderPipelines.GUI_TEXTURED, t.ring, 0, top, 0f, 0f, RING_TEX, RING_TEX, RING_TEX, RING_TEX, RING_TEX, RING_TEX);
+        // rim + alas cincin + cincin dalam + bayangan + track kotak kosong: satu tekstur
+        g.blit(RenderPipelines.GUI_TEXTURED, t.ring, 0, 0, 0f, 0f, RING_TEX, RING_TEX, RING_TEX, RING_TEX, RING_TEX, RING_TEX);
 
         // cincin kotak: bangun ulang hanya kalau kuncinya berubah
         long key = HudState.statKey(c.showHealth, c.showHunger, c.showArmor);
@@ -121,22 +65,21 @@ final class CircleLayout {
             ringKey = key;
             rebuildRing(t, c.showHealth, c.showHunger, c.showArmor);
         }
-        RING.draw(g, cx, cy);
+        RING.draw(g, R, R);
 
         // kepala skin 40x40 (8x8 diperbesar 5x) + layer topi, muat di dalam cincin dalam
         if (c.showFace) {
-            g.blit(RenderPipelines.GUI_TEXTURED, HudState.skin, cx - 20, cy - 20, 8f, 8f, 40, 40, 8, 8, 64, 64);
-            g.blit(RenderPipelines.GUI_TEXTURED, HudState.skin, cx - 20, cy - 20, 40f, 8f, 40, 40, 8, 8, 64, 64);
+            g.blit(RenderPipelines.GUI_TEXTURED, HudState.skin, R - 20, R - 20, 8f, 8f, 40, 40, 8, 8, 64, 64);
+            g.blit(RenderPipelines.GUI_TEXTURED, HudState.skin, R - 20, R - 20, 40f, 8f, 40, 40, 8, 8, 64, 64);
         }
+    }
 
-        // kotak level: hanya teks, area dalam 11px -> teks 7px diberi 2px lega di atas dan bawah
-        if (c.showLevel) {
-            int bw = Math.max(56, HudState.levelW + 22);
-            int bx = (D - bw) / 2;
-            int by = top + D + LEVEL_GAP;
-            HudDraw.badge(g, t, bx, by, bw, LEVEL_H);
-            g.text(mc.font, HudState.levelStr, bx + (bw - HudState.levelW) / 2, by + 5, t.level, true);
-        }
+    /** Component 3: kotak level (hanya teks, 2px lega atas-bawah). */
+    static void drawLevel(GuiGraphicsExtractor g, Minecraft mc) {
+        final HudTheme t = HudState.T;
+        int bw = levelWidth();
+        HudDraw.badge(g, t, 0, 0, bw, CAPSULE_H);
+        g.text(mc.font, HudState.levelStr, (bw - HudState.levelW) / 2, 5, t.level, true);
     }
 
     // ------------------------------------------------------------------ cincin kotak (dibangun saat berubah)

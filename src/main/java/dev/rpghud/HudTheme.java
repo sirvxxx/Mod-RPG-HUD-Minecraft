@@ -17,7 +17,8 @@ public final class HudTheme {
     public final int[] empty;
     /** warna alas cincin (dipakai menutup track sektor yang dimatikan). */
     public final int bandBack;
-    public final Identifier frame, badge, ring, iconCoords, iconFps, iconHeart, iconFood, iconArmor;
+    public final Identifier frame, badge, ring, iconCoords, iconFps, iconHeart, iconFood, iconArmor,
+            hTube, hDiamond, hSlotOn, hSlotOff;
     /** posisi di ALL (dipakai untuk kunci cache, 0..7). */
     public int index;
 
@@ -41,6 +42,10 @@ public final class HudTheme {
         this.iconHeart = tex(id, "icon_heart");
         this.iconFood = tex(id, "icon_food");
         this.iconArmor = tex(id, "icon_armor");
+        this.hTube = tex(id, "h_tube");
+        this.hDiamond = tex(id, "h_diamond");
+        this.hSlotOn = tex(id, "h_slot_on");
+        this.hSlotOff = tex(id, "h_slot_off");
     }
 
     private static Identifier tex(String id, String name) {

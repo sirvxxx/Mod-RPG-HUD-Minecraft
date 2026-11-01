@@ -23,6 +23,14 @@ final class HudDraw {
         slice(g, t.badge, 16, 16, 4, x, y, w, h);
     }
 
+    /** 3-slice horizontal: tinggi apa adanya (th), ujung kiri/kanan b piksel, tengah diregangkan. */
+    static void hslice(GuiGraphicsExtractor g, Identifier tex, int tw, int th, int b, int x, int y, int w) {
+        int mw = w - 2 * b, cw = tw - 2 * b;
+        g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, 0f, 0f, b, th, b, th, tw, th);
+        g.blit(RenderPipelines.GUI_TEXTURED, tex, x + w - b, y, (float) (tw - b), 0f, b, th, b, th, tw, th);
+        if (mw > 0) g.blit(RenderPipelines.GUI_TEXTURED, tex, x + b, y, (float) b, 0f, mw, th, cw, th, tw, th);
+    }
+
     static void icon(GuiGraphicsExtractor g, Identifier tex, int x, int y) {
         g.blit(RenderPipelines.GUI_TEXTURED, tex, x, y, 0f, 0f, ICON, ICON, ICON, ICON, ICON, ICON);
     }

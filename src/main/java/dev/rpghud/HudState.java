@@ -4,6 +4,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.EquipmentSlot;
 
 /**
  * Cache semua nilai turunan yang dipakai render. Isinya hanya diubah saat sumbernya berubah
@@ -23,6 +24,8 @@ final class HudState {
     static int nameCircleW, nameBarW;
     static String levelStr = "";
     static int levelW;
+    static String levelNumStr = "0";      // hanya angka (dipakai di dalam intan Type 3)
+    static int levelNumW = 6;
     static String coordsLabel = "XYZ ";
     static int coordsLabelW = 18;
     static String coordsVals = "0 0 0";
@@ -40,6 +43,8 @@ final class HudState {
     // ---- statistik player (terkuantisasi, jadi kunci cache render)
     static int hpQ, gQ, food, satQ, arm, pulseQ;   // hp/ghost 0..320, sat 0..40, pulseQ 0 = tidak berdenyut
     static float hpFrac;
+    static float xpFrac;                           // progres XP 0..1
+    static int slotMask;                           // bit 0..3 = helm, baju, celana, sepatu terpasang
 
     private static String rawName = "";
     private static int lastLevel = -1, lcx = Integer.MIN_VALUE, lcy, lcz, lastFps = -1, lastHp = -1, lastMax = -1;
@@ -62,7 +67,7 @@ final class HudState {
             rawName = p.getName().getString();
             nameCircle = HudDraw.fit(mc, rawName, CircleLayout.D - 16);
             nameCircleW = mc.font.width(nameCircle);
-            nameBar = HudDraw.fit(mc, rawName, BarLayout.PANEL_W - 14 - 48);
+            nameBar = HudDraw.fit(mc, rawName, BarLayout.NAME_W - 14 - 48);
             nameBarW = mc.font.width(nameBar);
             coordsLabel = tr("custom_rpg_hud.hud.coords") + " ";
             coordsLabelW = mc.font.width(coordsLabel);
@@ -80,6 +85,8 @@ final class HudState {
             lastLevel = lv;
             levelStr = tr("custom_rpg_hud.hud.level", lv);
             levelW = mc.font.width(levelStr);
+            levelNumStr = Integer.toString(lv);
+            levelNumW = mc.font.width(levelNumStr);
         }
 
         int bx = (int) Math.floor(p.getX()), by = (int) Math.floor(p.getY()), bz = (int) Math.floor(p.getZ());
@@ -112,6 +119,13 @@ final class HudState {
         float sat = Math.min(p.getFoodData().getSaturationLevel(), food);
         satQ = Math.min(40, (int) (sat * 2f));
         arm = Math.min(20, p.getArmorValue());
+        xpFrac = HudDraw.clamp01(p.experienceProgress);
+        int m = 0;
+        if (!p.getItemBySlot(EquipmentSlot.HEAD).isEmpty()) m |= 1;
+        if (!p.getItemBySlot(EquipmentSlot.CHEST).isEmpty()) m |= 2;
+        if (!p.getItemBySlot(EquipmentSlot.LEGS).isEmpty()) m |= 4;
+        if (!p.getItemBySlot(EquipmentSlot.FEET).isEmpty()) m |= 8;
+        slotMask = m;
         pulseQ = hpFrac < 0.3f ? 1 + (int) ((Math.sin(System.currentTimeMillis() / 140.0) + 1.0) * 3.49) : 0;
 
         coordsPanelW = Math.max(110, coordsLabelW + coordsValsW + 7 + HudDraw.ICON + 3 + 8);

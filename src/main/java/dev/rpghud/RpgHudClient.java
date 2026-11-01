@@ -33,6 +33,9 @@ public class RpgHudClient implements ClientModInitializer {
         hideVanilla(VanillaHudElements.HEALTH_BAR);
         hideVanilla(VanillaHudElements.ARMOR_BAR);
         hideVanilla(VanillaHudElements.FOOD_BAR);
+        // Type Horizontal menggantikan juga bar XP + angka level vanilla (dicari lewat reflection supaya tahan beda versi)
+        hideVanillaXp(vanillaId("INFO_BAR"));
+        hideVanillaXp(vanillaId("EXPERIENCE_LEVEL"));
 
         HudElementRegistry.attachElementBefore(
                 VanillaHudElements.CHAT,
@@ -66,6 +69,24 @@ public class RpgHudClient implements ClientModInitializer {
         });
 
         HudCommands.register();
+    }
+
+    private static Identifier vanillaId(String field) {
+        try {
+            return (Identifier) VanillaHudElements.class.getField(field).get(null);
+        } catch (ReflectiveOperationException | ClassCastException e) {
+            return null;
+        }
+    }
+
+    private static void hideVanillaXp(Identifier id) {
+        if (id == null) return;
+        HudElementRegistry.replaceElement(id, original -> (HudElement) (graphics, delta) -> {
+            HudConfig c = HudConfig.get();
+            if (!(c.enabled && c.hideVanilla && c.layoutType == HudConfig.TYPE_HORIZONTAL)) {
+                original.extractRenderState(graphics, delta);
+            }
+        });
     }
 
     private static void hideVanilla(Identifier id) {

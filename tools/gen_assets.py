@@ -10,6 +10,11 @@ Ukuran tetap (jangan diubah kalau mau tetap cocok dengan kode Java):
   badge.png  16x16  (9-slice, border 4px)  -> kapsul nama & level
   ring.png   96x96                         -> lingkaran utama (rim, cincin dalam, bayangan, track kotak kosong)
   icon_*.png 8x8  (coords, fps, heart, food, armor)
+  Type 3 (Horizontal):
+  h_tube.png      20x12  (3-slice horizontal, border 4px)  -> tabung HP / Hunger
+  h_diamond.png   40x40                                    -> intan tengah (track XP dipanggang di sini)
+  h_slot_on.png   8x8    -> slot armor terisi (warna tema)
+  h_slot_off.png  8x8    -> slot armor kosong (hitam pekat)
 
 Pakai:  python3 tools/gen_assets.py            -> tulis semua PNG
         python3 tools/gen_assets.py --java     -> cetak baris preset untuk HudTheme.java
@@ -205,6 +210,70 @@ def draw_ring(cv, P):
         cv.img.putpixel((c + dx, c + dy), empty[sh])
 
 
+def draw_h_tube(cv, P):
+    """Tabung horizontal 20x12: outline, bevel, saluran isi 6px (baris 3..8)."""
+    w, h = 20, 12
+    o = rgba(P["outline"])
+    cv.fill(1, 0, w - 1, h, o)
+    cv.fill(0, 1, w, h - 1, o)
+    cv.fill(1, 1, w - 1, h - 1, rgba(P["mid"]))
+    cv.fill(2, 1, w - 2, 2, rgba(P["hl_top"]))
+    cv.fill(1, 2, 2, h - 2, rgba(P["hl_left"]))
+    cv.fill(2, h - 2, w - 2, h - 1, rgba(P["sh_bottom"]))
+    cv.fill(w - 2, 2, w - 1, h - 2, rgba(P["sh_right"]))
+    cv.fill(2, 2, w - 2, h - 2, rgba(P["bronze"]))
+    cv.vgrad(3, 3, w - 6, 6, rgba(P["inner_top"]), rgba(P["inner_bottom"]))   # saluran isi (baris 3..8)
+
+
+def diamond_d(x, y, size=40):
+    c = size / 2.0
+    return abs(x + 0.5 - c) + abs(y + 0.5 - c), (x + 0.5 - c), (y + 0.5 - c)
+
+
+def draw_h_diamond(cv, P):
+    """Intan 40x40. Pita XP = piksel dengan jarak Manhattan d dalam [15,17) (identik dengan HorizontalLayout.java)."""
+    for y in range(40):
+        for x in range(40):
+            d, fx, fy = diamond_d(x, y)
+            col = None
+            if d < 13:
+                col = rgba(P["inner_disc"])
+            elif d < 14:
+                col = rgba(P["outline"])
+            elif d < 15:
+                col = rgba(P["sh_bottom"])
+            elif d < 17:
+                col = rgba(P["e1"])                                   # track XP kosong
+            elif d < 18:
+                col = rgba(P["hl_left"])
+            elif d < 19.5:
+                col = rgba(P["hl_top"]) if fy < 0 else rgba(P["sh_right"])
+            elif d < 20.5:
+                col = rgba(P["outline"])
+            if col:
+                cv.img.putpixel((x, y), col)
+
+
+def draw_slot(on, P):
+    cv = Canvas(8, 8)
+    base = P["text"]
+    light = tuple(min(255, int(((base >> s) & 255) * 0.45 + 255 * 0.55)) for s in (16, 8, 0))
+    for y in range(8):
+        for x in range(8):
+            d, fx, fy = diamond_d(x, y, 8)
+            if d < 3:
+                if on:
+                    col = (light[0], light[1], light[2], 255) if (fx + fy) < -0.5 and d < 2.2 else rgba(base)
+                else:
+                    col = (0, 0, 0, 255)                              # hitam pekat
+            elif d < 4:
+                col = rgba(P["outline"]) if on else rgba(P["sh_bottom"])
+            else:
+                continue
+            cv.img.putpixel((x, y), col)
+    return cv
+
+
 ICON_COORDS = [
     "..1111..",
     ".122221.",
@@ -284,6 +353,10 @@ def build_all():
         draw_icon(ICON_HEART, P, "hp").save(os.path.join(d, "icon_heart.png"))
         draw_icon(ICON_FOOD, P, "food").save(os.path.join(d, "icon_food.png"))
         draw_icon(ICON_ARMOR, P, "armor").save(os.path.join(d, "icon_armor.png"))
+        ht = Canvas(20, 12); draw_h_tube(ht, P); ht.save(os.path.join(d, "h_tube.png"))
+        hd = Canvas(40, 40); draw_h_diamond(hd, P); hd.save(os.path.join(d, "h_diamond.png"))
+        draw_slot(True, P).save(os.path.join(d, "h_slot_on.png"))
+        draw_slot(False, P).save(os.path.join(d, "h_slot_off.png"))
     print("PNG ditulis ke", os.path.abspath(OUT))
 
 
