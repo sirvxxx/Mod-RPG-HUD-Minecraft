@@ -12,7 +12,8 @@ HUD kiri atas: wajah skin player aktif, nama, HP (angka + bar), hunger, armor.
 Butuh JDK 25 dan Gradle 9.5.1+: `./build.sh` (atau `build.bat`). Hasil: `build/libs/custom-rpg-hud-*.jar`.
 
 ## Kustomisasi in-game
-/rpghud x <angka>  /rpghud y <angka>  /rpghud scale <0.25-6>
+Tombol H atau /rpghud gui membuka menu pengaturan.
+/rpghud x <angka>  /rpghud y <angka>  /rpghud scale <0.5-3>
 /rpghud hidevanilla <true|false>  /rpghud toggle  /rpghud reset
 Atau edit `.minecraft/config/custom_rpg_hud.json`.
 

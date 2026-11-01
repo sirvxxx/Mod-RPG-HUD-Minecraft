@@ -8,7 +8,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.minecraft.network.chat.Component;
 
 /**
- * /rpghud x <angka> | y <angka> | scale <0.25-6> | hidevanilla <true/false> | toggle | reset
+ * /rpghud gui | x <n> | y <n> | scale <0.5-3> | hidevanilla <bool> | toggle | reset
  */
 public final class HudCommands {
     private HudCommands() {}
@@ -16,6 +16,11 @@ public final class HudCommands {
     public static void register() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
             dispatcher.register(ClientCommands.literal("rpghud")
+                .then(ClientCommands.literal("gui")
+                    .executes(ctx -> {
+                        RpgHudClient.requestOpen();
+                        return 1;
+                    }))
                 .then(ClientCommands.literal("x")
                     .then(ClientCommands.argument("value", IntegerArgumentType.integer(0, 4000))
                         .executes(ctx -> {
@@ -33,7 +38,7 @@ public final class HudCommands {
                             return 1;
                         })))
                 .then(ClientCommands.literal("scale")
-                    .then(ClientCommands.argument("value", FloatArgumentType.floatArg(0.25f, 6f))
+                    .then(ClientCommands.argument("value", FloatArgumentType.floatArg(0.5f, 3f))
                         .executes(ctx -> {
                             HudConfig.get().scale = FloatArgumentType.getFloat(ctx, "value");
                             HudConfig.save();
