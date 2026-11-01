@@ -16,9 +16,11 @@ public class HudConfig {
     // Umum
     public boolean enabled = true;
     public boolean hideVanilla = true;
-    public int x = 4;
-    public int y = 4;
+    public int x = 8;
+    public int y = 8;
     public float scale = 1.0f;
+    /** 1 segmen = 1 HP (akurat per poin) atau 2 (1 segmen = 1 hati/drumstick). */
+    public int segUnit = 1;
 
     // Elemen yang bisa dinyalakan / dimatikan
     public boolean showFace = true;
@@ -44,6 +46,7 @@ public class HudConfig {
         instance.scale = Math.max(0.5f, Math.min(3f, instance.scale));
         instance.x = Math.max(0, instance.x);
         instance.y = Math.max(0, instance.y);
+        if (instance.segUnit != 2) instance.segUnit = 1;
         save();
     }
 

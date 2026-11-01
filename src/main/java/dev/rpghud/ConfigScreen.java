@@ -35,7 +35,7 @@ public class ConfigScreen extends Screen {
     protected void init() {
         HudRenderer.suppressHud = true;   // preview milik layar ini yang dipakai
 
-        int rows = 7;
+        int rows = 8;
         boxH = 14 + rows * ROW_H;
         boxLeft = (this.width - BOX_W) / 2;
         boxTop = Math.max(0, this.height - boxH - 4);
@@ -58,12 +58,23 @@ public class ConfigScreen extends Screen {
         toggle(2, 5, "HUD", () -> HudConfig.get().enabled, v -> HudConfig.get().enabled = v);
 
         toggle(0, 6, "Hide vanilla", () -> HudConfig.get().hideVanilla, v -> HudConfig.get().hideVanilla = v);
+        addRenderableWidget(Button.builder(segText(), b -> {
+            HudConfig c = HudConfig.get();
+            c.segUnit = (c.segUnit == 1) ? 2 : 1;
+            HudConfig.save();
+            b.setMessage(segText());
+        }).bounds(colX(1), rowY(6), COL_W, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Reset"), b -> {
             HudConfig.reset();
             this.rebuildWidgets();
-        }).bounds(colX(1), rowY(6), COL_W, 20).build());
+        }).bounds(colX(2), rowY(6), COL_W, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Done"), b -> this.onClose())
-                .bounds(colX(2), rowY(6), COL_W, 20).build());
+                .bounds(boxLeft, rowY(7), BOX_W, 20).build());
+    }
+
+    private static Component segText() {
+        int u = HudConfig.get().segUnit;
+        return Component.literal("Segment: " + (u == 1 ? "1 HP" : "2 HP"));
     }
 
     private int colX(int col) { return boxLeft + col * (COL_W + COL_GAP); }
