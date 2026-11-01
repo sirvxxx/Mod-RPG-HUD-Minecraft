@@ -19,6 +19,10 @@ public class HudConfig {
     public int x = 8;
     public int y = 8;
     public float scale = 1.0f;
+    /** Poin per segmen: 2 => 10 segmen per bar (default), 1 => 20 segmen (akurat per poin). */
+    public int unitPerSeg = 2;
+    /** true = profil lingkaran (gauge XP ala Kingdom Hearts), false = frame kotak RPG. */
+    public boolean circleProfile = true;
 
     // Elemen yang bisa dinyalakan / dimatikan
     public boolean showFace = true;
@@ -44,6 +48,7 @@ public class HudConfig {
         instance.scale = Math.max(0.5f, Math.min(3f, instance.scale));
         instance.x = Math.max(0, instance.x);
         instance.y = Math.max(0, instance.y);
+        if (instance.unitPerSeg != 1) instance.unitPerSeg = 2;
         save();
     }
 

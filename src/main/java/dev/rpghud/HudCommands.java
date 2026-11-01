@@ -8,7 +8,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.minecraft.network.chat.Component;
 
 /**
- * /rpghud gui | edit | x <n> | y <n> | scale <0.5-3> | hidevanilla <bool> | toggle | reset
+ * /rpghud gui | x <n> | y <n> | scale <0.5-3> | hidevanilla <bool> | toggle | reset
  */
 public final class HudCommands {
     private HudCommands() {}
@@ -19,11 +19,6 @@ public final class HudCommands {
                 .then(ClientCommands.literal("gui")
                     .executes(ctx -> {
                         RpgHudClient.requestOpen();
-                        return 1;
-                    }))
-                .then(ClientCommands.literal("edit")
-                    .executes(ctx -> {
-                        RpgHudClient.requestEdit();
                         return 1;
                     }))
                 .then(ClientCommands.literal("x")

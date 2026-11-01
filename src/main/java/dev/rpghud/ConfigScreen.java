@@ -58,16 +58,35 @@ public class ConfigScreen extends Screen {
         toggle(2, 5, "HUD", () -> HudConfig.get().enabled, v -> HudConfig.get().enabled = v);
 
         toggle(0, 6, "Hide vanilla", () -> HudConfig.get().hideVanilla, v -> HudConfig.get().hideVanilla = v);
-        addRenderableWidget(Button.builder(Component.literal("Edit mode"), b -> {
+        addRenderableWidget(Button.builder(segText(), b -> {
+            HudConfig c = HudConfig.get();
+            c.unitPerSeg = (c.unitPerSeg == 2) ? 1 : 2;
             HudConfig.save();
-            McCompat.openScreen(new HudEditScreen());
+            b.setMessage(segText());
         }).bounds(colX(1), rowY(6), COL_W, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Reset"), b -> {
             HudConfig.reset();
             this.rebuildWidgets();
         }).bounds(colX(2), rowY(6), COL_W, 20).build());
+        addRenderableWidget(Button.builder(profileText(), b -> {
+            HudConfig c = HudConfig.get();
+            c.circleProfile = !c.circleProfile;
+            HudConfig.save();
+            b.setMessage(profileText());
+            clampPos();
+            syncSliders();
+        }).bounds(colX(0), rowY(7), COL_W, 20).build());
         addRenderableWidget(Button.builder(Component.literal("Done"), b -> this.onClose())
-                .bounds(boxLeft, rowY(7), BOX_W, 20).build());
+                .bounds(colX(1), rowY(7), 2 * COL_W + COL_GAP, 20).build());
+    }
+
+    private static Component profileText() {
+        return Component.literal("Profile: " + (HudConfig.get().circleProfile ? "Circle" : "Square"));
+    }
+
+    private static Component segText() {
+        int u = HudConfig.get().unitPerSeg;
+        return Component.literal("Segments: " + (u == 2 ? "10" : "20"));
     }
 
     private int colX(int col) { return boxLeft + col * (COL_W + COL_GAP); }
@@ -116,7 +135,7 @@ public class ConfigScreen extends Screen {
         HudConfig c = HudConfig.get();
         HudRenderer.preview(g);
         g.outline(c.x - 1, c.y - 1, hudW() + 2, hudH() + 2, dragging ? 0xFFFFFFFF : 0x99FFD36B);
-        g.text(this.font, "Custom RPG HUD - tarik HUD dengan mouse, atau pakai slider",
+        g.text(this.font, "Custom RPG HUD - tarik panel HUD dengan mouse, atau pakai slider",
                 boxLeft + 2, boxTop + 2, 0xFFFFD36B, true);
 
         // Drag & drop: polling status tombol kiri mouse
