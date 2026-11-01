@@ -19,12 +19,12 @@ public class HudConfig {
     public int x = 8;
     public int y = 8;
     public float scale = 1.0f;
-    /** 1 segmen = 1 HP (akurat per poin) atau 2 (1 segmen = 1 hati/drumstick). */
-    public int segUnit = 1;
 
     // Elemen yang bisa dinyalakan / dimatikan
     public boolean showFace = true;
     public boolean showLevel = true;
+    /** Ring EXP (busur biru) di sisi kanan lingkaran profil. */
+    public boolean showExp = true;
     public boolean showName = true;
     public boolean showHealth = true;
     public boolean showHunger = true;
@@ -46,7 +46,6 @@ public class HudConfig {
         instance.scale = Math.max(0.5f, Math.min(3f, instance.scale));
         instance.x = Math.max(0, instance.x);
         instance.y = Math.max(0, instance.y);
-        if (instance.segUnit != 2) instance.segUnit = 1;
         save();
     }
 

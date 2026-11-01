@@ -8,31 +8,37 @@ import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
 
 /**
- * HUD bergaya RPG. Bar health / hunger / armor SEGMENTED dan akurat:
- * default 1 segmen = 1 poin (20 HP = 20 segmen), jadi setiap damage terlihat tepat.
+ * HUD bergaya RPG (v3):
+ *  - Profil: lingkaran logam + ring gauge ala Kingdom Hearts (kiri = HP, kanan = EXP), wajah skin di tengah, badge Lv.
+ *  - Panel utama: nama + angka HP, lalu bar Health / Hunger / Armor, masing-masing 10 segmen.
+ *  - Panel bawah: koordinat XYZ + FPS berwarna dinamis.
  */
 public final class HudRenderer {
     private static final Identifier HEART = Identifier.withDefaultNamespace("textures/gui/sprites/hud/heart/full.png");
     private static final Identifier FOOD  = Identifier.withDefaultNamespace("textures/gui/sprites/hud/food_full.png");
     private static final Identifier ARMOR = Identifier.withDefaultNamespace("textures/gui/sprites/hud/armor_full.png");
 
-    // Dimensi layout (piksel GUI sebelum scale)
-    public static final int FACE_W = 52;
-    public static final int PANEL_W = 140;
-    public static final int PANEL_H = 63;
-    public static final int GAP = 6;       // jarak antar panel
+    // ---- dimensi layout (piksel GUI sebelum scale)
+    public static final int CIRCLE_D = 64;     // diameter lingkaran profil
+    public static final int PROFILE_H = 68;    // lingkaran + badge Lv
+    public static final int PANEL_X = 68;      // posisi panel utama bila profil tampil
+    public static final int PANEL_W = 150;
+    public static final int PANEL_H = 58;
+    public static final int GAP = 3;
     public static final int INFO_H = 19;
+    private static final int SEGMENTS = 10;
 
-    // Palet logam / RPG klasik
-    private static final int OUTLINE = 0xFF0E0B08;
-    private static final int METAL_MID = 0xFFB98A3E;
-    private static final int METAL_HL_TOP = 0xFFF3DC8F;
-    private static final int METAL_HL_LEFT = 0xFFDDB75E;
-    private static final int METAL_SH_BOTTOM = 0xFF6A4A1E;
-    private static final int METAL_SH_RIGHT = 0xFF7D5A26;
-    private static final int BRONZE_LINE = 0xFF7A5524;
-    private static final int INNER = 0xFF16110C;
-    private static final int GOLD_TEXT = 0xFFFFD36B;
+    // ---- palet logam: emas tua / cokelat, highlight terang di sisi atas
+    private static final int OUTLINE        = 0xFF0A0806;
+    private static final int METAL_MID      = 0xFF9A7230;
+    private static final int METAL_HL_TOP   = 0xFFF6DE8E;
+    private static final int METAL_HL_LEFT  = 0xFFD4AA52;
+    private static final int METAL_SH_BOTTOM = 0xFF5A3C16;
+    private static final int METAL_SH_RIGHT = 0xFF6C4A1E;
+    private static final int BRONZE_LINE    = 0xFF6B4A1E;
+    private static final int INNER_TOP      = 0xFF21190F;
+    private static final int INNER_BOTTOM   = 0xFF0C0907;
+    private static final int GOLD_TEXT      = 0xFFFFD36B;
 
     /** true saat layar pengaturan terbuka (layar itu menggambar preview sendiri). */
     public static boolean suppressHud = false;
@@ -56,17 +62,23 @@ public final class HudRenderer {
         return c.showCoords || c.showFps;
     }
 
+    private static int topHeight(HudConfig c) {
+        if (c.showFace) return c.showLevel ? PROFILE_H : CIRCLE_D;
+        return statusVisible(c) ? PANEL_H : 0;
+    }
+
     public static int width(HudConfig c) {
-        int off = c.showFace ? FACE_W + GAP : 0;
+        boolean st = statusVisible(c);
         int w = 0;
-        if (statusVisible(c)) w = off + PANEL_W;
-        else if (c.showFace) w = FACE_W;
+        if (c.showFace && st) w = PANEL_X + PANEL_W;
+        else if (st) w = PANEL_W;
+        else if (c.showFace) w = CIRCLE_D;
         if (infoVisible(c)) w = Math.max(w, (c.showCoords && c.showFps) ? 168 : PANEL_W);
         return w;
     }
 
     public static int height(HudConfig c) {
-        int h = (statusVisible(c) || c.showFace) ? PANEL_H : 0;
+        int h = topHeight(c);
         if (infoVisible(c)) h += (h > 0 ? GAP : 0) + INFO_H;
         return h;
     }
@@ -115,74 +127,141 @@ public final class HudRenderer {
         pose.scale(c.scale, c.scale);
 
         boolean status = statusVisible(c);
-        int statusX = c.showFace ? FACE_W + GAP : 0;
+        int top = topHeight(c);
 
-        if (c.showFace) drawFace(g, mc, p, c);
-        if (status) drawStatus(g, mc, p, c, statusX);
+        if (c.showFace) drawProfile(g, mc, p, c);
+        if (status) {
+            int px = c.showFace ? PANEL_X : 0;
+            int py = c.showFace ? (CIRCLE_D - PANEL_H) / 2 : 0;
+            drawStatus(g, mc, p, c, px, py);
+        }
         if (infoVisible(c)) {
-            int infoY = (status || c.showFace) ? PANEL_H + GAP : 0;
-            drawInfo(g, mc, p, c, infoY, width(c));
+            drawInfo(g, mc, p, c, top > 0 ? top + GAP : 0, width(c));
         }
 
         pose.popMatrix();
     }
 
-    // ------------------------------------------------------------------ wajah
+    // ------------------------------------------------------------------ profil (ring gauge ala Kingdom Hearts)
 
-    private static void drawFace(GuiGraphicsExtractor g, Minecraft mc, LocalPlayer p, HudConfig c) {
-        frame(g, 0, 0, FACE_W, PANEL_H);
+    private static void drawProfile(GuiGraphicsExtractor g, Minecraft mc, LocalPlayer p, HudConfig c) {
+        final int cx = CIRCLE_D / 2, cy = CIRCLE_D / 2;
+        float max = Math.max(1f, p.getMaxHealth());
+        float hpF = clamp01(p.getHealth() / max);
+        float ghostF = clamp01((shownHp < 0f ? p.getHealth() : shownHp) / max);
+        float expF = clamp01(p.experienceProgress);
+
+        // bayangan + rim logam bertingkat (highlight kiri-atas, gelap kanan-bawah)
+        disc(g, cx + 1, cy + 2, 32, 0x55000000);
+        disc(g, cx, cy, 32, OUTLINE);
+        disc(g, cx, cy, 31, METAL_HL_TOP);
+        disc(g, cx + 1, cy + 1, 30, METAL_SH_BOTTOM);
+        disc(g, cx, cy, 30, METAL_MID);
+        disc(g, cx, cy, 29, OUTLINE);
+        disc(g, cx, cy, 24, 0xFF050403);
+        disc(g, cx, cy, 23, 0xFF14100B);
+
+        // warna HP dinamis: hijau -> kuning -> merah (berdenyut saat kritis)
+        int hpCol = hpF >= 0.5f ? lerp(0xFFFFD23C, 0xFF45E060, (hpF - 0.5f) * 2f)
+                                : lerp(0xFFFF4A40, 0xFFFFD23C, hpF * 2f);
+        if (hpF < 0.3f) hpCol = mul(hpCol, 0.8f + 0.2f * (float) Math.sin(System.currentTimeMillis() / 140.0));
+
+        ringGauge(g, cx, cy, hpF, ghostF, hpCol, expF, 0xFF4AA8FF, c.showExp);
+
+        // wajah skin 32x32 (8x8 diperbesar 4x) + layer topi
         Identifier skin = SkinHelper.bodyTexture(p);
-        // wajah 8x8 diperbesar 5x = 40x40 (skala bulat, tajam)
-        g.blit(RenderPipelines.GUI_TEXTURED, skin, 6, 7, 8f, 8f, 40, 40, 8, 8, 64, 64);
-        g.blit(RenderPipelines.GUI_TEXTURED, skin, 6, 7, 40f, 8f, 40, 40, 8, 8, 64, 64);
-        g.outline(5, 6, 42, 42, 0xFF000000);
+        g.blit(RenderPipelines.GUI_TEXTURED, skin, cx - 16, cy - 16, 8f, 8f, 32, 32, 8, 8, 64, 64);
+        g.blit(RenderPipelines.GUI_TEXTURED, skin, cx - 16, cy - 16, 40f, 8f, 32, 32, 8, 8, 64, 64);
 
         if (c.showLevel) {
             String lv = "Lv " + p.experienceLevel;
-            int tw = mc.font.width(lv);
-            g.text(mc.font, lv, (FACE_W - tw) / 2, 50, 0xFF9CFF7A, true);
+            int bw = Math.max(36, mc.font.width(lv) + 12);
+            int bx = (CIRCLE_D - bw) / 2;
+            int by = CIRCLE_D - 10;
+            badge(g, bx, by, bw, 14);
+            g.text(mc.font, lv, bx + (bw - mc.font.width(lv)) / 2, by + 3, 0xFF9CFF7A, true);
+        }
+    }
+
+    /**
+     * Ring gauge: busur kiri = HP (isi dari bawah ke atas), busur kanan = EXP.
+     * Bila ring EXP dimatikan, kedua sisi menampilkan HP. Digambar per baris piksel
+     * dengan run-merging supaya jumlah fill kecil.
+     */
+    private static void ringGauge(GuiGraphicsExtractor g, int cx, int cy,
+                                  float hpF, float ghostF, int hpCol,
+                                  float expF, int expCol, boolean showExp) {
+        final int RO = 28, RI = 24;
+        final double ro2 = RO * RO, ri2 = RI * RI;
+        for (int dy = -RO; dy < RO; dy++) {
+            double fy = dy + 0.5;
+            int runStart = -RO;
+            int runColor = 0;
+            for (int dx = -RO; dx <= RO; dx++) {
+                int col = 0;
+                if (dx < RO) {
+                    double fx = dx + 0.5;
+                    double d2 = fx * fx + fy * fy;
+                    if (d2 >= ri2 && d2 < ro2 && Math.abs(fx) > 1.0) {   // celah 2px di atas & bawah
+                        float shade = (float) ((Math.sqrt(d2) - RI) / (RO - RI));
+                        double ang = Math.atan2(Math.abs(fx), -fy);       // 0 = atas, PI = bawah
+                        float u = (float) (1.0 - ang / Math.PI);          // 0 = bawah, 1 = atas
+                        boolean left = fx < 0;
+                        int base;
+                        if (left || !showExp) {
+                            if (u <= hpF) base = hpCol;
+                            else if (u <= ghostF) base = 0xFFEBDDB8;
+                            else base = 0;
+                        } else {
+                            base = (u <= expF) ? expCol : 0;
+                        }
+                        if (base == 0) col = lerp(0xFF120D0A, 0xFF281D15, shade);
+                        else col = lerp(mul(base, 0.70f), mul(base, 1.18f), shade);
+                    }
+                }
+                if (col != runColor) {
+                    if (runColor != 0) g.fill(cx + runStart, cy + dy, cx + dx, cy + dy + 1, runColor);
+                    runStart = dx;
+                    runColor = col;
+                }
+            }
         }
     }
 
     // ------------------------------------------------------------------ panel status
 
-    private static void drawStatus(GuiGraphicsExtractor g, Minecraft mc, LocalPlayer p, HudConfig c, int x) {
+    private static void drawStatus(GuiGraphicsExtractor g, Minecraft mc, LocalPlayer p, HudConfig c, int x, int y) {
         final int W = PANEL_W;
-        final int unit = Math.max(1, c.segUnit);
-        frame(g, x, 0, W, PANEL_H);
+        frame(g, x, y, W, PANEL_H);
 
         float hp = p.getHealth();
         float max = Math.max(1f, p.getMaxHealth());
 
-        // ---- header: plate nama + plate angka HP
+        // ---- header: plate nama (kiri) + plate angka HP (kanan)
         if (c.showName || c.showHealth) {
             String hpTxt = (int) Math.ceil(hp) + "/" + (int) Math.ceil(max);
             int right = x + W - 7;
-            int hpW = Math.max(38, mc.font.width(hpTxt) + 8);
+            int hpW = Math.max(40, mc.font.width(hpTxt) + 10);
             int hpX = right - hpW;
             int nameX = x + 7;
             int nameR = c.showHealth ? hpX - 3 : right;
             if (c.showName) {
-                plate(g, nameX, 7, nameR - nameX, 12);
+                plate(g, nameX, y + 7, nameR - nameX, 12);
                 String name = fit(mc, p.getName().getString(), nameR - nameX - 8);
-                g.text(mc.font, name, nameX + 4, 8, GOLD_TEXT, true);
+                g.text(mc.font, name, nameX + 4, y + 9, GOLD_TEXT, true);
             }
             if (c.showHealth) {
-                plate(g, hpX, 7, hpW, 12);
-                g.text(mc.font, hpTxt, hpX + (hpW - mc.font.width(hpTxt)) / 2, 8, 0xFFFFFFFF, true);
+                plate(g, hpX, y + 7, hpW, 12);
+                g.text(mc.font, hpTxt, hpX + (hpW - mc.font.width(hpTxt)) / 2, y + 9, 0xFFFFFFFF, true);
             }
         }
 
-        // semua bar sejajar: kolom ikon x+7..x+16, bar mulai x+20
         final int bx = x + 20;
         final int bw = W - 27;
 
-        // ---- HEALTH (1 segmen = 'unit' HP)
+        // ---- HEALTH (10 segmen, tiap segmen = 10% HP, bisa terisi sebagian)
         if (c.showHealth) {
-            int n = segCount(max, unit);
-            int filled = segFill(hp, max, n);
-            int ghost = segFill(shownHp < 0f ? hp : shownHp, max, n);
-            float f = hp / max;
+            float f = clamp01(hp / max);
             float t = clamp01((f - 0.2f) / 0.8f);
             int top = lerp(0xFFB01818, 0xFFFF6A5E, t);
             int bot = lerp(0xFF4E0707, 0xFFC41F1F, t);
@@ -191,28 +270,23 @@ public final class HudRenderer {
                 top = mul(top, pulse);
                 bot = mul(bot, pulse);
             }
-            g.blit(RenderPipelines.GUI_TEXTURED, HEART, x + 7, 24, 0f, 0f, 9, 9, 9, 9, 9, 9);
-            segBar(g, bx, 24, bw, 9, n, filled, ghost, 0, top, bot);
+            g.blit(RenderPipelines.GUI_TEXTURED, HEART, x + 7, y + 23, 0f, 0f, 9, 9, 9, 9, 9, 9);
+            segBar(g, bx, y + 23, bw, 9, hp, max, shownHp < 0f ? hp : shownHp, 0f, top, bot);
         }
 
-        // ---- HUNGER (1 segmen = 'unit' poin makanan; garis kuning = saturation)
+        // ---- HUNGER (garis kuning di bawah segmen = saturation)
         if (c.showHunger) {
             int food = p.getFoodData().getFoodLevel();
-            int n = segCount(20f, unit);
-            int filled = segFill(food, 20f, n);
             float sat = Math.min(p.getFoodData().getSaturationLevel(), food);
-            int accent = Math.min(filled, (int) Math.floor(sat * n / 20f));
-            icon(g, FOOD, x + 8, 38);
-            segBar(g, bx, 39, bw, 5, n, filled, 0, accent, 0xFFFFC04D, 0xFFC27A12);
+            icon(g, FOOD, x + 8, y + 36);
+            segBar(g, bx, y + 36, bw, 7, food, 20f, food, sat, 0xFFFFC04D, 0xFFC27A12);
         }
 
-        // ---- ARMOR (1 segmen = 'unit' poin armor)
+        // ---- ARMOR
         if (c.showArmor) {
             int arm = Math.min(20, p.getArmorValue());
-            int n = segCount(20f, unit);
-            int filled = segFill(arm, 20f, n);
-            icon(g, ARMOR, x + 8, 49);
-            segBar(g, bx, 50, bw, 5, n, filled, 0, 0, 0xFFBBD5EC, 0xFF5F7E9E);
+            icon(g, ARMOR, x + 8, y + 46);
+            segBar(g, bx, y + 46, bw, 7, arm, 20f, arm, 0f, 0xFFBBD5EC, 0xFF5F7E9E);
         }
     }
 
@@ -220,7 +294,7 @@ public final class HudRenderer {
 
     private static void drawInfo(GuiGraphicsExtractor g, Minecraft mc, LocalPlayer p, HudConfig c, int y, int w) {
         frame(g, 0, y, w, INFO_H);
-        int ty = y + 5;
+        int ty = y + 6;
 
         if (c.showCoords) {
             String label = "XYZ ";
@@ -234,7 +308,10 @@ public final class HudRenderer {
             int total = mc.font.width(num) + mc.font.width(label);
             int fx = w - 8 - total;
             int col = fps >= 60 ? 0xFF7CFC7C : (fps >= 30 ? 0xFFFFE066 : 0xFFFF6B6B);
-            if (c.showCoords) g.fill(fx - 5, y + 5, fx - 4, y + INFO_H - 5, 0x99B98A3E);   // pemisah
+            if (c.showCoords) {
+                g.fill(fx - 6, y + 5, fx - 5, y + INFO_H - 5, 0xFF0A0806);   // pemisah beralur
+                g.fill(fx - 5, y + 5, fx - 4, y + INFO_H - 5, 0x80C79A45);
+            }
             g.text(mc.font, num, fx, ty, col, true);
             g.text(mc.font, label, fx + mc.font.width(num), ty, GOLD_TEXT, true);
         }
@@ -242,7 +319,7 @@ public final class HudRenderer {
 
     // ------------------------------------------------------------------ komponen gambar
 
-    /** Frame logam: pita 3px dengan bevel, garis perunggu, sudut terpotong, stud emas, dan bayangan. */
+    /** Frame logam: bevel 3D (terang di atas/kiri), garis perunggu, sudut terpotong, stud emas, bayangan. */
     private static void frame(GuiGraphicsExtractor g, int x, int y, int w, int h) {
         g.fill(x + 1, y + 1, x + w + 3, y + h + 3, 0x22000000);                 // bayangan lembut
         g.fill(x + 2, y + 3, x + w + 2, y + h + 2, 0x44000000);                 // bayangan inti
@@ -259,10 +336,10 @@ public final class HudRenderer {
         g.fill(x + w - 2, y + 2, x + w - 1, y + h - 2, METAL_SH_RIGHT);
 
         g.fill(x + 3, y + 3, x + w - 3, y + h - 3, BRONZE_LINE);                // garis perunggu dalam
-        g.fill(x + 4, y + 4, x + w - 4, y + h - 4, INNER);                      // area cekung
-        g.fill(x + 4, y + 4, x + w - 4, y + 5, 0xFF050403);
+        vgrad(g, x + 4, y + 4, w - 8, h - 8, INNER_TOP, INNER_BOTTOM);          // area cekung bergradasi
+        g.fill(x + 4, y + 4, x + w - 4, y + 5, 0xFF050403);                     // bayangan dalam atas/kiri
         g.fill(x + 4, y + 5, x + 5, y + h - 4, 0xFF050403);
-        g.fill(x + 4, y + h - 5, x + w - 4, y + h - 4, 0x40E0BB62);
+        g.fill(x + 4, y + h - 5, x + w - 4, y + h - 4, 0x40E0BB62);             // pantulan bawah
 
         int st = 0xFFFFF0B8;                                                    // stud emas di 4 sudut
         g.fill(x + 2, y + 2, x + 4, y + 4, st);
@@ -271,53 +348,74 @@ public final class HudRenderer {
         g.fill(x + w - 4, y + h - 4, x + w - 2, y + h - 2, st);
     }
 
+    /** Badge kecil bergaya logam untuk teks Lv. */
+    private static void badge(GuiGraphicsExtractor g, int x, int y, int w, int h) {
+        g.fill(x + 1, y + 2, x + w + 1, y + h + 2, 0x55000000);
+        g.fill(x + 1, y, x + w - 1, y + h, OUTLINE);
+        g.fill(x, y + 1, x + w, y + h - 1, OUTLINE);
+        g.fill(x + 1, y + 1, x + w - 1, y + h - 1, METAL_MID);
+        g.fill(x + 2, y + 1, x + w - 2, y + 2, METAL_HL_TOP);
+        g.fill(x + 1, y + 2, x + 2, y + h - 2, METAL_HL_LEFT);
+        g.fill(x + 2, y + h - 2, x + w - 2, y + h - 1, METAL_SH_BOTTOM);
+        vgrad(g, x + 3, y + 3, w - 6, h - 6, INNER_TOP, INNER_BOTTOM);
+    }
+
     /** Plate gelap berbingkai tipis untuk nama & angka HP. */
     private static void plate(GuiGraphicsExtractor g, int x, int y, int w, int h) {
-        g.fill(x, y, x + w, y + h, 0xFF0D0A07);
-        g.outline(x, y, w, h, 0xFF3A2A18);
+        vgrad(g, x, y, w, h, 0xFF171009, 0xFF0A0705);
+        g.outline(x, y, w, h, 0xFF4A3520);
+        g.fill(x + 1, y + 1, x + w - 1, y + 2, 0x30FFFFFF);
     }
 
     /**
-     * Bar bersegmen. n = jumlah segmen, filled = segmen terisi (utuh, tanpa pecahan),
-     * ghost = segmen yang baru hilang (jejak damage), accent = segmen dengan garis kuning (saturation).
+     * Bar 10 segmen. value/max menentukan isi (segmen terakhir bisa terisi sebagian),
+     * ghost = jejak damage (pucat), accent = garis kuning di dasar segmen (saturation).
      */
     private static void segBar(GuiGraphicsExtractor g, int x, int y, int w, int h,
-                               int n, int filled, int ghost, int accent, int top, int bottom) {
+                               float value, float max, float ghost, float accent, int top, int bottom) {
         g.fill(x - 1, y - 1, x + w, y + h + 1, 0xFF050403);
-        for (int i = 0; i < n; i++) {
-            int x0 = x + Math.round(i * (float) w / n);
-            int x1 = x + Math.round((i + 1) * (float) w / n) - 1;
-            if (x1 <= x0) x1 = x0 + 1;
+        g.fill(x, y + h, x + w - 1, y + h + 1, 0x30E0BB62);
+        for (int i = 0; i < SEGMENTS; i++) {
+            int x0 = x + Math.round(i * (float) w / SEGMENTS);
+            int x1 = x + Math.round((i + 1) * (float) w / SEGMENTS) - 1;
             int sw = x1 - x0;
-            if (i < filled) {
-                vgrad(g, x0, y, sw, h, top, bottom);
-                g.fill(x0, y, x1, y + 1, 0x66FFFFFF);
-                if (i < accent) g.fill(x0, y + h - 1, x1, y + h, 0xFFFFF2A0);
-            } else if (i < ghost) {
-                vgrad(g, x0, y, sw, h, 0xFFEBDDB8, 0xFFA89870);
-            } else {
-                vgrad(g, x0, y, sw, h, 0xFF2E211D, 0xFF1B1311);
+            if (sw < 1) continue;
+
+            vgrad(g, x0, y, sw, h, 0xFF2E211D, 0xFF1B1311);                    // slot kosong
+
+            float fv = segFrac(value, max, i);
+            int fw = Math.round(sw * fv);
+            if (fv > 0f && fw == 0) fw = 1;
+            float fg = segFrac(ghost, max, i);
+            int gw = Math.round(sw * fg);
+            if (gw > fw) vgrad(g, x0 + fw, y, gw - fw, h, 0xFFEBDDB8, 0xFFA89870);
+
+            if (fw > 0) {
+                vgrad(g, x0, y, fw, h, top, bottom);
+                g.fill(x0, y, x0 + fw, y + 1, 0x77FFFFFF);                     // kilap atas
+                int aw = Math.min(fw, Math.round(sw * segFrac(accent, max, i)));
+                if (aw > 0) g.fill(x0, y + h - 1, x0 + aw, y + h, 0xFFFFF2A0);
             }
         }
     }
 
-    private static int segCount(float max, int unit) {
-        int n = (int) Math.ceil(max / unit - 1e-4);
-        return Math.max(1, Math.min(40, n));
-    }
-
-    /** Jumlah segmen terisi; dibulatkan ke atas, dan minimal 1 selama masih hidup. */
-    private static int segFill(float value, float max, int n) {
-        int f = (int) Math.ceil(value * n / max - 1e-3f);
-        f = Math.max(0, Math.min(n, f));
-        if (value > 0f && f == 0) f = 1;
-        return f;
+    private static float segFrac(float v, float max, int i) {
+        return clamp01(v * SEGMENTS / max - i);
     }
 
     private static void vgrad(GuiGraphicsExtractor g, int x, int y, int w, int h, int top, int bottom) {
         for (int i = 0; i < h; i++) {
             float t = h <= 1 ? 0f : (float) i / (h - 1);
             g.fill(x, y + i, x + w, y + i + 1, lerp(top, bottom, t));
+        }
+    }
+
+    /** Lingkaran terisi: satu fill per baris. */
+    private static void disc(GuiGraphicsExtractor g, int cx, int cy, int r, int color) {
+        for (int dy = -r; dy < r; dy++) {
+            double fy = dy + 0.5;
+            int half = (int) Math.round(Math.sqrt(Math.max(0.0, (double) r * r - fy * fy)));
+            if (half > 0) g.fill(cx - half, cy + dy, cx + half, cy + dy + 1, color);
         }
     }
 
