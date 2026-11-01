@@ -28,7 +28,7 @@ public class ConfigScreen extends Screen {
     private int dragOffX, dragOffY;
 
     public ConfigScreen() {
-        super(Component.literal("Custom RPG HUD"));
+        super(Component.translatable("custom_rpg_hud.config.title"));
     }
 
     @Override
@@ -45,66 +45,76 @@ public class ConfigScreen extends Screen {
         sliderY = addRenderableWidget(new CfgSlider(this, 1, boxLeft, y0 + ROW_H, BOX_W, 20));
         sliderScale = addRenderableWidget(new CfgSlider(this, 2, boxLeft, y0 + 2 * ROW_H, BOX_W, 20));
 
-        toggle(0, 3, "Face", () -> HudConfig.get().showFace, v -> HudConfig.get().showFace = v);
-        toggle(1, 3, "Level", () -> HudConfig.get().showLevel, v -> HudConfig.get().showLevel = v);
-        toggle(2, 3, "Name", () -> HudConfig.get().showName, v -> HudConfig.get().showName = v);
+        toggle(0, 3, "custom_rpg_hud.config.face", () -> HudConfig.get().showFace, v -> HudConfig.get().showFace = v);
+        toggle(1, 3, "custom_rpg_hud.config.level", () -> HudConfig.get().showLevel, v -> HudConfig.get().showLevel = v);
+        toggle(2, 3, "custom_rpg_hud.config.name", () -> HudConfig.get().showName, v -> HudConfig.get().showName = v);
 
-        toggle(0, 4, "Health", () -> HudConfig.get().showHealth, v -> HudConfig.get().showHealth = v);
-        toggle(1, 4, "Hunger", () -> HudConfig.get().showHunger, v -> HudConfig.get().showHunger = v);
-        toggle(2, 4, "Armor", () -> HudConfig.get().showArmor, v -> HudConfig.get().showArmor = v);
+        toggle(0, 4, "custom_rpg_hud.config.health", () -> HudConfig.get().showHealth, v -> HudConfig.get().showHealth = v);
+        toggle(1, 4, "custom_rpg_hud.config.hunger", () -> HudConfig.get().showHunger, v -> HudConfig.get().showHunger = v);
+        toggle(2, 4, "custom_rpg_hud.config.armor", () -> HudConfig.get().showArmor, v -> HudConfig.get().showArmor = v);
 
-        toggle(0, 5, "Coords", () -> HudConfig.get().showCoords, v -> HudConfig.get().showCoords = v);
-        toggle(1, 5, "FPS", () -> HudConfig.get().showFps, v -> HudConfig.get().showFps = v);
-        toggle(2, 5, "HUD", () -> HudConfig.get().enabled, v -> HudConfig.get().enabled = v);
+        toggle(0, 5, "custom_rpg_hud.config.coords", () -> HudConfig.get().showCoords, v -> HudConfig.get().showCoords = v);
+        toggle(1, 5, "custom_rpg_hud.config.fps", () -> HudConfig.get().showFps, v -> HudConfig.get().showFps = v);
+        toggle(2, 5, "custom_rpg_hud.config.hud", () -> HudConfig.get().enabled, v -> HudConfig.get().enabled = v);
 
-        toggle(0, 6, "Hide vanilla", () -> HudConfig.get().hideVanilla, v -> HudConfig.get().hideVanilla = v);
-        addRenderableWidget(Button.builder(segText(), b -> {
+        // baris 6: hide vanilla, pemilih tema, pemilih tipe layout (Circle / Bar)
+        toggle(0, 6, "custom_rpg_hud.config.hide_vanilla", () -> HudConfig.get().hideVanilla, v -> HudConfig.get().hideVanilla = v);
+        addRenderableWidget(Button.builder(themeText(), b -> {
             HudConfig c = HudConfig.get();
-            c.unitPerSeg = (c.unitPerSeg == 2) ? 1 : 2;
+            c.theme = HudTheme.next(HudTheme.byId(c.theme)).id;
             HudConfig.save();
-            b.setMessage(segText());
+            b.setMessage(themeText());
         }).bounds(colX(1), rowY(6), COL_W, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Reset"), b -> {
-            HudConfig.reset();
-            this.rebuildWidgets();
-        }).bounds(colX(2), rowY(6), COL_W, 20).build());
-        addRenderableWidget(Button.builder(profileText(), b -> {
+        addRenderableWidget(Button.builder(layoutText(), b -> {
             HudConfig c = HudConfig.get();
-            c.circleProfile = !c.circleProfile;
+            c.layoutType = c.layoutType == HudConfig.TYPE_BAR ? HudConfig.TYPE_CIRCLE : HudConfig.TYPE_BAR;
             HudConfig.save();
-            b.setMessage(profileText());
+            b.setMessage(layoutText());
             clampPos();
             syncSliders();
+        }).bounds(colX(2), rowY(6), COL_W, 20).build());
+
+        // baris 7: edit mode, reset, selesai
+        addRenderableWidget(Button.builder(Component.translatable("custom_rpg_hud.config.edit_mode"), b -> {
+            HudConfig.save();
+            McCompat.openScreen(new HudEditScreen());
         }).bounds(colX(0), rowY(7), COL_W, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Done"), b -> this.onClose())
-                .bounds(colX(1), rowY(7), 2 * COL_W + COL_GAP, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("custom_rpg_hud.config.reset"), b -> {
+            HudConfig.reset();
+            this.rebuildWidgets();
+        }).bounds(colX(1), rowY(7), COL_W, 20).build());
+        addRenderableWidget(Button.builder(Component.translatable("custom_rpg_hud.config.done"), b -> this.onClose())
+                .bounds(colX(2), rowY(7), COL_W, 20).build());
     }
 
-    private static Component profileText() {
-        return Component.literal("Profile: " + (HudConfig.get().circleProfile ? "Circle" : "Square"));
+    private static Component layoutText() {
+        boolean bar = HudConfig.get().layoutType == HudConfig.TYPE_BAR;
+        return Component.translatable("custom_rpg_hud.config.layout",
+                Component.translatable(bar ? "custom_rpg_hud.layout.bar" : "custom_rpg_hud.layout.circle"));
     }
 
-    private static Component segText() {
-        int u = HudConfig.get().unitPerSeg;
-        return Component.literal("Segments: " + (u == 2 ? "10" : "20"));
+    private static Component themeText() {
+        HudTheme t = HudTheme.byId(HudConfig.get().theme);
+        return Component.translatable("custom_rpg_hud.config.theme", Component.translatable(t.translationKey()));
     }
 
     private int colX(int col) { return boxLeft + col * (COL_W + COL_GAP); }
     private int rowY(int row) { return boxTop + 14 + row * ROW_H; }
 
-    private void toggle(int col, int row, String label, Supplier<Boolean> get, Consumer<Boolean> set) {
-        addRenderableWidget(Button.builder(toggleText(label, get.get()), b -> {
+    private void toggle(int col, int row, String key, Supplier<Boolean> get, Consumer<Boolean> set) {
+        addRenderableWidget(Button.builder(toggleText(key, get.get()), b -> {
             set.accept(!get.get());
             HudConfig.save();
-            b.setMessage(toggleText(label, get.get()));
+            b.setMessage(toggleText(key, get.get()));
             clampPos();
             syncSliders();
         }).bounds(colX(col), rowY(row), COL_W, 20).build());
     }
 
-    private static Component toggleText(String label, boolean on) {
-        return Component.literal(label + ": ")
-                .append(Component.literal(on ? "ON" : "OFF").withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED));
+    private static Component toggleText(String key, boolean on) {
+        return Component.translatable(key).append(Component.literal(": "))
+                .append(Component.translatable(on ? "custom_rpg_hud.config.on" : "custom_rpg_hud.config.off")
+                        .withStyle(on ? ChatFormatting.GREEN : ChatFormatting.RED));
     }
 
     // ------------------------------------------------------------------ posisi / ukuran
@@ -135,7 +145,7 @@ public class ConfigScreen extends Screen {
         HudConfig c = HudConfig.get();
         HudRenderer.preview(g);
         g.outline(c.x - 1, c.y - 1, hudW() + 2, hudH() + 2, dragging ? 0xFFFFFFFF : 0x99FFD36B);
-        g.text(this.font, "Custom RPG HUD - tarik panel HUD dengan mouse, atau pakai slider",
+        g.text(this.font, Component.translatable("custom_rpg_hud.config.hint").getString(),
                 boxLeft + 2, boxTop + 2, 0xFFFFD36B, true);
 
         // Drag & drop: polling status tombol kiri mouse
@@ -194,12 +204,13 @@ public class ConfigScreen extends Screen {
         protected void updateMessage() {
             if (owner == null) return;
             HudConfig c = HudConfig.get();
-            String text = switch (kind) {
-                case 0 -> "X: " + c.x;
-                case 1 -> "Y: " + c.y;
-                default -> String.format(Locale.ROOT, "Scale: %.2fx", c.scale);
+            Component msg = switch (kind) {
+                case 0 -> Component.translatable("custom_rpg_hud.config.slider_x", c.x);
+                case 1 -> Component.translatable("custom_rpg_hud.config.slider_y", c.y);
+                default -> Component.translatable("custom_rpg_hud.config.slider_scale",
+                        String.format(Locale.ROOT, "%.2f", c.scale));
             };
-            setMessage(Component.literal(text));
+            setMessage(msg);
         }
 
         @Override

@@ -11,18 +11,20 @@ import java.nio.file.Path;
 public class HudConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path FILE = FabricLoader.getInstance().getConfigDir().resolve("custom_rpg_hud.json");
+    public static final int TYPE_CIRCLE = 0;
+    public static final int TYPE_BAR = 1;
     private static HudConfig instance = new HudConfig();
 
     // Umum
     public boolean enabled = true;
     public boolean hideVanilla = true;
+    /** id tema: hardcore, netherite, forest, celestial, cyber, classic (lihat HudTheme). */
+    public String theme = HudTheme.DEFAULT_ID;
+    /** 0 = Circle (melingkar), 1 = Bar (kotak konvensional). */
+    public int layoutType = 0;
     public int x = 8;
     public int y = 8;
     public float scale = 1.0f;
-    /** Poin per segmen: 2 => 10 segmen per bar (default), 1 => 20 segmen (akurat per poin). */
-    public int unitPerSeg = 2;
-    /** true = profil lingkaran (gauge XP ala Kingdom Hearts), false = frame kotak RPG. */
-    public boolean circleProfile = true;
 
     // Elemen yang bisa dinyalakan / dimatikan
     public boolean showFace = true;
@@ -45,10 +47,11 @@ public class HudConfig {
         } catch (Exception e) {
             System.err.println("[RPG HUD] Gagal baca config: " + e);
         }
+        instance.theme = HudTheme.byId(instance.theme).id;
+        if (instance.layoutType != TYPE_BAR) instance.layoutType = TYPE_CIRCLE;
         instance.scale = Math.max(0.5f, Math.min(3f, instance.scale));
         instance.x = Math.max(0, instance.x);
         instance.y = Math.max(0, instance.y);
-        if (instance.unitPerSeg != 1) instance.unitPerSeg = 2;
         save();
     }
 

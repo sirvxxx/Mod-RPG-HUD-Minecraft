@@ -20,7 +20,7 @@ public class HudEditScreen extends Screen {
     private int dragOffX, dragOffY;
 
     public HudEditScreen() {
-        super(Component.literal("HUD Edit Mode"));
+        super(Component.translatable("custom_rpg_hud.edit.title"));
     }
 
     @Override
@@ -32,32 +32,32 @@ public class HudEditScreen extends Screen {
         int x = (this.width - total) / 2;
         int y = this.height - BAR_H + 5;
 
-        addRenderableWidget(Button.builder(Component.literal("Scale -"), b -> {
+        addRenderableWidget(Button.builder(Component.translatable("custom_rpg_hud.edit.scale_minus"), b -> {
             HudConfig c = HudConfig.get();
             c.scale = Math.max(0.5f, Math.round((c.scale - 0.1f) * 10f) / 10f);
             clampPos();
         }).bounds(x, y, bw, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Scale +"), b -> {
+        addRenderableWidget(Button.builder(Component.translatable("custom_rpg_hud.edit.scale_plus"), b -> {
             HudConfig c = HudConfig.get();
             c.scale = Math.min(3f, Math.round((c.scale + 0.1f) * 10f) / 10f);
             clampPos();
         }).bounds(x + (bw + gap), y, bw, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Center"), b -> {
+        addRenderableWidget(Button.builder(Component.translatable("custom_rpg_hud.edit.center"), b -> {
             HudConfig c = HudConfig.get();
             c.x = Math.max(0, (this.width - hudW()) / 2);
             c.y = Math.max(0, (this.height - hudH()) / 2);
         }).bounds(x + 2 * (bw + gap), y, bw, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Reset pos"), b -> {
+        addRenderableWidget(Button.builder(Component.translatable("custom_rpg_hud.edit.reset_pos"), b -> {
             HudConfig c = HudConfig.get();
             c.x = 8;
             c.y = 8;
             clampPos();
         }).bounds(x + 3 * (bw + gap), y, bw, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Settings"), b -> {
+        addRenderableWidget(Button.builder(Component.translatable("custom_rpg_hud.edit.settings"), b -> {
             HudConfig.save();
             McCompat.openScreen(new ConfigScreen());
         }).bounds(x + 4 * (bw + gap), y, bw, 20).build());
-        addRenderableWidget(Button.builder(Component.literal("Done"), b -> this.onClose())
+        addRenderableWidget(Button.builder(Component.translatable("custom_rpg_hud.config.done"), b -> this.onClose())
                 .bounds(x + 5 * (bw + gap), y, bw, 20).build());
     }
 
@@ -100,12 +100,13 @@ public class HudEditScreen extends Screen {
         int frameCol = dragging ? 0xFFFFFFFF : (overHud ? 0xFFFFD36B : 0x99FFD36B);
         g.outline(c.x - 2, c.y - 2, w + 4, h + 4, frameCol);
 
-        String title = "HUD Edit Mode";
-        String hint = "Klik tahan HUD lalu seret ke posisi yang lu mau";
+        String title = Component.translatable("custom_rpg_hud.edit.title").getString();
+        String hint = Component.translatable("custom_rpg_hud.edit.hint").getString();
         g.text(this.font, title, (this.width - this.font.width(title)) / 2, 8, 0xFFFFD36B, true);
         g.text(this.font, hint, (this.width - this.font.width(hint)) / 2, 20, 0xFFFFFFFF, true);
 
-        String info = String.format(Locale.ROOT, "X: %d  Y: %d  Scale: %.1fx", c.x, c.y, c.scale);
+        String info = Component.translatable("custom_rpg_hud.edit.info", c.x, c.y,
+                String.format(Locale.ROOT, "%.1f", c.scale)).getString();
         g.text(this.font, info, (this.width - this.font.width(info)) / 2, this.height - BAR_H - 12, 0xFF9CFF7A, true);
     }
 
